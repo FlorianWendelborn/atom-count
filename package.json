@@ -1,0 +1,27 @@
+{
+  "name": "count",
+  "version": "0.0.0",
+  "description": "Persistent key counter.",
+  "main": "source",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://dodekeract@github.com/dodekeract/atom-count.git"
+  },
+  "keywords": [
+    "atom",
+    "key",
+    "counter",
+    "keycounter",
+    "count",
+    "keys"
+  ],
+  "author": "Florian Wendelborn",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/dodekeract/atom-count/issues"
+  },
+  "homepage": "https://github.com/dodekeract/atom-count#readme"
+}
