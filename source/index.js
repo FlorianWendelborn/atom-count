@@ -74,9 +74,9 @@ class Count {
 	}
 
 	parse ({count, fullKey, key}) {
-		this.count = count
-		this.fullKey = fullKey
-		this.key = key
+		this.count = count || 0
+		this.fullKey = fullKey || 'none'
+		this.key = key || 'none'
 	}
 
 	serialize () {
