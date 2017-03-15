@@ -77,6 +77,8 @@ class Count {
 		this.count = count || 0
 		this.fullKey = fullKey || 'none'
 		this.key = key || 'none'
+
+		if (Number.isNaN(this.count)) this.count = 0
 	}
 
 	serialize () {
