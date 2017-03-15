@@ -1,11 +1,19 @@
 {
-  "name": "count",
-  "version": "0.0.0",
-  "description": "Persistent key counter.",
-  "main": "source",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+  "consumedServices": {
+    "status-bar": {
+      "versions": {
+        "^1.0.0": "addStatusBar"
+      }
+    }
   },
+  "deserializers": {
+    "state": "parse"
+  },
+  "name": "count",
+  "version": "0.0.1",
+  "description": "Persistent key counter.",
+  "main": "./source/index.js",
+  "scripts": {},
   "repository": {
     "type": "git",
     "url": "git+https://dodekeract@github.com/dodekeract/atom-count.git"
