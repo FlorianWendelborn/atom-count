@@ -1,25 +1,33 @@
 // region import
 const View = require('./view')
-const {CompositeDisposable, Disposable} = require('atom')
+const { CompositeDisposable, Disposable } = require('atom')
 // endregion
 
 // region Count
 class Count {
-	activate (state) {
-		if (state) {
-			atom.deserializers.deserialize(state)
-		} else {
-			this.count = 0
-			this.key = 'none'
-			this.fullKey = 'none'
-		}
+	activate() {
+		this.altKey = 'none'
+		this.ctrlKey = 'none'
+		this.key = 'none'
+		this.keyUp = false
+		this.metaKey = 'none'
+		this.shiftKey = 'none'
+
+		this.fullKeys = 'none'
+		this.macKeys = 'none'
+
 		this.format = atom.config.get('count.format')
+		this.ignoreRepeatedKeys = atom.config.get('count.ignoreRepeatedKeys')
 		this.view = new View()
 		this.view.initialize()
 
 		// config change listeners
-		atom.config.onDidChange('count.format', ({newValue}) => {
+		atom.config.onDidChange('count.format', ({ newValue }) => {
 			this.format = newValue
+			this.refresh()
+		})
+		atom.config.onDidChange('count.ignoreRepeatedKeys', ({ newValue }) => {
+			this.ignoreRepeatedKeys = newValue
 			this.refresh()
 		})
 
@@ -28,22 +36,76 @@ class Count {
 		this.disposables = new CompositeDisposable()
 		this.disposables.add(
 			new Disposable(
-				atom.views.getView(atom.workspace).addEventListener('keydown', event => {
-					ref.count++
-					ref.key = event.key
-
-					// full keys
-					const keys = []
-					if (event.altKey) keys.push('alt')
-					if (event.ctrlKey) keys.push('ctrl')
-					if (event.metaKey) keys.push('command')
-					if (event.shiftKey) keys.push('shift')
-					keys.push(event.key)
-					ref.fullKey = keys.join('+')
-
-					// reload
-					ref.refresh()
+				atom.views.getView(atom.workspace).addEventListener('keyup', event => {
+					ref.keyUp = true
 				})
+			)
+		)
+		this.disposables.add(
+			new Disposable(
+				atom.views
+					.getView(atom.workspace)
+					.addEventListener('keydown', event => {
+						// ignore repeat keys
+						if (
+							ref.ignoreRepeatedKeys &&
+							!ref.keyUp &&
+							ref.altKey === event.altKey &&
+							ref.ctrlKey === event.ctrlKey &&
+							ref.key === event.key &&
+							ref.metaKey === event.metaKey &&
+							ref.shiftKey === event.shiftKey
+						)
+							return
+
+						// increment count
+						atom.config.set('count.amount', atom.config.get('count.amount') + 1)
+
+						// single key
+						ref.key = event.key
+						ref.altKey = event.altKey
+						ref.ctrlKey = event.ctrlKey
+						ref.metaKey = event.metaKey
+						ref.shiftKey = event.shiftKey
+						ref.keyUp = false
+
+						// full keys
+						const fullKeys = []
+						if (event.altKey) fullKeys.push('alt')
+						if (event.ctrlKey) fullKeys.push('ctrl')
+						if (event.metaKey) fullKeys.push('meta')
+						if (event.shiftKey) fullKeys.push('shift')
+
+						if (!['Alt', 'Control', 'Meta', 'Shift'].includes(event.key))
+							fullKeys.push(event.key)
+
+						fullKeys.push(event.key)
+						ref.fullKeys = fullKeys.join('+')
+
+						// mac keys
+						const macKeys = []
+						if (event.ctrlKey) macKeys.push('⌃')
+						if (event.altKey) macKeys.push('⌥')
+						if (event.shiftKey) macKeys.push('⇧')
+						if (event.metaKey) macKeys.push('⌘')
+
+						const macMap = {
+							ArrowDown: '↓',
+							ArrowLeft: '←',
+							ArrowRight: '→',
+							ArrowUp: '↑',
+							Backspace: '⌫',
+							Enter: '⏎',
+							Escape: '⎋',
+						}
+						if (!['Alt', 'Control', 'Meta', 'Shift'].includes(event.key))
+							macKeys.push(macMap[event.key] || event.key)
+
+						ref.macKeys = macKeys.join('')
+
+						// reload
+						ref.refresh()
+					})
 			)
 		)
 
@@ -51,46 +113,28 @@ class Count {
 		this.refresh()
 	}
 
-	refresh () {
-		this.view.set(this.format
-			.replace(/\%c/g, this.count)
-			.replace(/\%f/g, this.fullKey)
-			.replace(/\%k/g, this.key)
+	refresh() {
+		this.view.set(
+			this.format
+				.replace(/\%c/g, atom.config.get('count.amount'))
+				.replace(/\%f/g, this.fullKeys)
+				.replace(/\%m/g, this.macKeys)
+				.replace(/\%k/g, this.key)
 		)
 	}
 
-	deactivate () {
+	deactivate() {
 		this.subscriptions.dispose()
 		this.view.destroy()
 		this.statusBarTile.destroy() // TODO
 	}
 
-	addStatusBar (statusBar) {
+	addStatusBar(statusBar) {
 		this.statusBar = statusBar
 		this.statusBarTile = this.statusBar.addLeftTile({
 			item: this.view,
-			priority: 50
+			priority: 50,
 		})
-	}
-
-	parse ({count, fullKey, key}) {
-		this.count = count || 0
-		this.fullKey = fullKey || 'none'
-		this.key = key || 'none'
-
-		if (
-			typeof this.count !== 'number'
-			|| Number.isNaN(this.count)
-		) this.count = 0
-	}
-
-	serialize () {
-		return {
-			count: this.count,
-			deserializer: 'state',
-			fullKey: this.fullKey,
-			key: this.key
-		}
 	}
 }
 // endregion
@@ -98,11 +142,22 @@ class Count {
 // region config
 const instance = new Count()
 instance.config = {
+	ignoreRepeatedKeys: {
+		type: 'boolean',
+		default: true,
+		description: 'Ignore holding down keys.',
+	},
 	format: {
 		type: 'string',
-		default: '%c %f',
-		description: 'Display format. %c = count, %k = key, %f = full key'
-	}
+		default: '%c %m',
+		description:
+			'Display format. %c = count, %k = last key, %m = mac full keys, %f = full keys',
+	},
+	amount: {
+		type: 'integer',
+		default: 0,
+		description: 'Current count.',
+	},
 }
 // endregion
 
